@@ -1,0 +1,102 @@
+@import '@fontsource/space-grotesk/400.css';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/600.css';
+@import '@fontsource/space-grotesk/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Your custom CSS after Tailwind */
+
+/* Set default background */
+body, html, #root {
+  background-color: #0a0a0a;
+}
+
+/* Custom cursor */
+@media (min-width: 768px) {
+  * {
+    cursor: none !important;
+  }
+}
+
+/* Custom tooltip styles */
+.tooltip {
+  @apply absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-white text-black text-xs px-2 py-1 rounded-md opacity-0 pointer-events-none transition-opacity duration-200 whitespace-nowrap;
+}
+
+.tooltip-visible {
+  @apply opacity-100;
+}
+
+/* Gradient border animation */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Float animation for particles */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-100px) translateX(50px);
+    opacity: 0.8;
+  }
+}
+
+.animate-float {
+  animation: float 10s ease-in-out infinite;
+}
+
+.gradient-border {
+  background: linear-gradient(-45deg, #d4c5ad, #c4ae91, #b69978, #e8dfd0, #a68968, #8a7155);
+  background-size: 400% 400%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Custom scrollbar for modal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d4c5ad, #b69978);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #c4ae91, #a68968);
+  background-clip: padding-box;
+}
+
+/* Performance optimizations */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
