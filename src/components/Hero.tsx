@@ -105,9 +105,9 @@ const Hero: React.FC = () => {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight"
         >
-          <LetterReveal text="Hi, I'm" delay={0.4} />{' '}
+          Hi, I'm{' '}
           <span className="bg-gradient-to-r from-beige-200 to-beige-400 bg-clip-text text-transparent">
-            <LetterReveal text="Swayam Sahoo" delay={0.6} />
+            Swayam Sahoo
           </span>
         </motion.h1>
 

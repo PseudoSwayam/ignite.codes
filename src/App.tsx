@@ -24,17 +24,12 @@ function AppContent() {
   const { isHackerMode, isTransitioning } = useHackerMode();
 
   useEffect(() => {
-    const welcomeShown = sessionStorage.getItem('welcomeShown');
-    if (welcomeShown) {
-      setShowWelcome(false);
-      setHasShownWelcome(true);
-    }
+    // Show welcome screen on every page load
   }, []);
 
   const handleWelcomeComplete = () => {
     setShowWelcome(false);
     setHasShownWelcome(true);
-    sessionStorage.setItem('welcomeShown', 'true');
   };
 
   return (
