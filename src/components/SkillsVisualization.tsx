@@ -89,7 +89,7 @@ const SkillsVisualization: React.FC = () => {
       {/* Extra height for scroll-based horizontal movement */}
       <div ref={containerRef} className="h-[400vh]">
         {/* Sticky container that holds the horizontally scrolling content */}
-        <div className="sticky top-0 h-screen flex items-center overflow-hidden bg-neutral-950">
+        <div className="sticky top-0 h-screen flex items-center overflow-hidden bg-neutral-950 pt-20">
           <div className="w-full max-w-6xl mx-auto px-4">
             {/* Header - stays in place */}
             <motion.div
@@ -102,14 +102,13 @@ const SkillsVisualization: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.5, delay: 0.1 }}
-                className="text-4xl md:text-5xl font-bold mb-2"
+                className="text-4xl md:text-5xl font-bold mb-4"
               >
                 <span className="text-white">Skills & </span>
                 <span className="bg-gradient-to-r from-beige-200 to-beige-400 bg-clip-text text-transparent">
                   Expertise
                 </span>
               </motion.h2>
-              <div className="h-1 w-20 bg-gradient-to-r from-beige-300 to-beige-500 rounded-full mb-4" />
 
               <motion.p
                 initial={{ opacity: 0 }}

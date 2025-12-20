@@ -206,7 +206,7 @@ export default function HackerProfile() {
             <div className="text-green-300 font-bold text-xs mb-2">PORTFOLIO STATS</div>
             <div className="grid grid-cols-4 gap-2 text-[10px] text-center">
               <div className="border border-green-500/30 p-2 rounded">
-                <div className="text-green-400 font-bold text-lg">6</div>
+                <div className="text-green-400 font-bold text-lg">8</div>
                 <div className="text-green-500/70 text-[9px]">PROJECTS</div>
               </div>
               <div className="border border-green-500/30 p-2 rounded">
@@ -214,7 +214,7 @@ export default function HackerProfile() {
                 <div className="text-green-500/70 text-[9px]">INTERNSHIPS</div>
               </div>
               <div className="border border-green-500/30 p-2 rounded">
-                <div className="text-green-400 font-bold text-lg">20+</div>
+                <div className="text-green-400 font-bold text-lg">30+</div>
                 <div className="text-green-500/70 text-[9px]">SKILLS</div>
               </div>
               <div className="border border-green-500/30 p-2 rounded">

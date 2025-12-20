@@ -96,14 +96,14 @@ const Internships: React.FC = () => {
         {/* Card Deck Animation Container */}
         <div ref={containerRef} className="h-[300vh] relative">
           {/* Sticky container with heading at top */}
-          <div className="sticky top-16 h-screen flex flex-col pt-4 pb-12">
+          <div className="sticky top-16 h-screen flex flex-col pt-16 pb-12">
             {/* Header - stays at top */}
             <motion.div
               ref={ref}
               initial={{ opacity: 0, y: 50 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
-              className="mb-4"
+              className="mb-8"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-white mb-2">
                 Professional Experience
@@ -112,45 +112,37 @@ const Internships: React.FC = () => {
             </motion.div>
 
             {/* Cards area - positioned below heading */}
-            <div className="flex-1 flex items-start justify-start pt-4">
+            <div className="flex-1 flex items-start justify-center pt-8">
             <div className="relative w-full max-w-5xl mx-auto">
               {internships.map((internship, index) => {
-                // Card positions based on scroll
-                // Card 0 (DeepSurge): falls down first, then slides right
-                // Card 1 (Scalable): falls down second, then slides to middle
-                // Card 2 (Samsung): falls down last, stays at left
+                // Card positions based on scroll - straight horizontal alignment
+                // All cards start from center and slide to their final positions
                 
-                let xMid = 0;
+                let xStart = 0;
                 let xEnd = 0;
                 let yStart = -100;
-                let yMid = 0;
+                let yEnd = 0;
                 let scrollStart = 0.1;
                 let scrollMid = 0.2;
                 let scrollEnd = 0.3;
 
                 if (index === 0) {
-                  // First card: falls down, then slides all the way right
-                  yStart = -100;
-                  yMid = 0;
-                  xMid = 0;
-                  xEnd = 650;
+                  // First card: slides to right position
+                  xStart = 0;
+                  xEnd = 660; // Right position with proper spacing
                   scrollStart = 0.1;
                   scrollMid = 0.2;
                   scrollEnd = 0.4;
                 } else if (index === 1) {
-                  // Second card: falls down, then slides to middle
-                  yStart = -100;
-                  yMid = 0;
-                  xMid = 0;
-                  xEnd = 325;
+                  // Second card: stays in center
+                  xStart = 0;
+                  xEnd = 330; // Center position with equal spacing
                   scrollStart = 0.25;
                   scrollMid = 0.35;
                   scrollEnd = 0.55;
                 } else {
-                  // Third card: falls down, stays at left
-                  yStart = -100;
-                  yMid = 0;
-                  xMid = 0;
+                  // Third card: stays at left
+                  xStart = 0;
                   xEnd = 0;
                   scrollStart = 0.4;
                   scrollMid = 0.5;
@@ -161,24 +153,24 @@ const Internships: React.FC = () => {
                 const y = useTransform(
                   scrollYProgress,
                   [scrollStart, scrollMid],
-                  [yStart, yMid]
+                  [yStart, yEnd]
                 );
 
                 // X position for sliding animation (happens after falling)
                 const x = useTransform(
                   scrollYProgress,
                   [scrollMid, scrollEnd],
-                  [xMid, xEnd]
+                  [xStart, xEnd]
                 );
 
                 // Stacking effect - cards start on top of each other
                 const initialZ = internships.length - index;
                 
-                // Rotation for falling effect
+                // No rotation - keep cards straight
                 const rotateZ = useTransform(
                   scrollYProgress,
                   [scrollStart, scrollMid],
-                  [0, index === 0 ? 2 : index === 1 ? -2 : 1]
+                  [0, 0]
                 );
 
                 // Scale during fall
@@ -266,15 +258,15 @@ const Internships: React.FC = () => {
                       <div className="absolute -inset-1 bg-gradient-to-r from-beige-300/20 to-beige-500/20 rounded-2xl blur-xl" />
 
                       {/* Card */}
-                      <div className="relative bg-black/80 backdrop-blur-xl rounded-2xl border border-beige-400/20 overflow-hidden shadow-2xl">
+                      <div className="relative bg-black/80 backdrop-blur-xl rounded-2xl border border-beige-400/20 overflow-hidden shadow-2xl h-[420px] flex flex-col">
                         {/* Gradient background */}
                         <div className="absolute inset-0 opacity-20">
                           <div className="absolute inset-0 bg-gradient-to-br from-beige-400/20 via-transparent to-transparent" />
                         </div>
 
-                        <div className="relative p-8">
+                        <div className="relative p-7 flex-1 flex flex-col">
                           {/* Company Icon & Name */}
-                          <div className="flex items-center gap-3 mb-6">
+                          <div className="flex items-center gap-3 mb-5">
                             <div className="relative">
                               <div className="absolute inset-0 bg-gradient-to-r from-beige-300 to-beige-500 rounded-lg blur-md opacity-50" />
                               <div className="relative bg-black p-2.5 rounded-lg border border-beige-400/50">
@@ -292,7 +284,7 @@ const Internships: React.FC = () => {
                           </div>
 
                           {/* Role */}
-                          <h3 className="text-3xl font-black text-white mb-4 leading-tight">
+                          <h3 className="text-2xl font-black text-white mb-4 leading-tight">
                             {internship.role}
                           </h3>
                           
@@ -306,8 +298,8 @@ const Internships: React.FC = () => {
                             </span>
                             {index === 2 && (
                               <div className="ml-2 px-2 py-0.5 bg-beige-500/20 border border-beige-400/50 rounded-full">
-                                <span className="text-beige-200 text-xs font-bold uppercase flex items-center gap-1">
-                                  <Zap className="w-3 h-3" />
+                                <span className="text-beige-200 text-[11px] font-bold uppercase flex items-center gap-1">
+                                  <Zap className="w-2.5 h-2.5" />
                                   Current
                                 </span>
                               </div>
@@ -315,7 +307,7 @@ const Internships: React.FC = () => {
                           </div>
 
                           {/* Description */}
-                          <p className="text-beige-100 text-sm leading-relaxed mb-6">
+                          <p className="text-beige-100 text-sm leading-relaxed mb-5">
                             {internship.description}
                           </p>
 
