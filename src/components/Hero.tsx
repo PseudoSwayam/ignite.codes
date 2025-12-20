@@ -107,7 +107,15 @@ const Hero: React.FC = () => {
         >
           Hi, I'm{' '}
           <span className="bg-gradient-to-r from-beige-200 to-beige-400 bg-clip-text text-transparent">
-            Swayam Sahoo
+            <TypeAnimation
+              sequence={[
+                'Swayam Sahoo',
+              ]}
+              wrapper="span"
+              speed={30}
+              cursor={false}
+              className="font-bold"
+            />
           </span>
         </motion.h1>
 
