@@ -5,6 +5,7 @@ import { TypeAnimation } from 'react-type-animation'; // typing effect
 const Hero3D = React.lazy(() => import('./Hero3D'));
 import Hero3DFallback from './Hero3DFallback';
 import { LetterReveal } from './ScrollRevealAnimations';
+import ProfileImage from './ProfileImage';
 
 const smoothScrollTo = (targetY: number, duration = 1200) => {
   const startY = window.scrollY;
@@ -58,20 +59,14 @@ const Hero: React.FC = () => {
       </div>
 
       <div className="text-center max-w-3xl mx-auto relative z-10">
-        {/* Avatar with glow + hover tilt */}
+        {/* Profile Image with hover effect */}
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-8"
         >
-          <motion.img
-            src="https://avatars.githubusercontent.com/u/129137886?v=4"
-            alt="Profile"
-            className="w-24 h-24 rounded-full mx-auto border-2 border-beige-400/30 shadow-xl shadow-beige-900/50"
-            whileHover={{ rotate: 5, scale: 1.05 }}
-            transition={{ type: 'spring', stiffness: 200 }}
-          />
+          <ProfileImage />
 
           {/* 🌟 Databricks Certification Badge Section */}
           <motion.div
