@@ -21,10 +21,16 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
   );
   const tempVec = useMemo(() => new THREE.Vector3(), []);
   const tempStartVec = useMemo(() => new THREE.Vector3(), []);
+  const tempDirVec = useMemo(() => new THREE.Vector3(), []);
+  const tempOrbitVec = useMemo(() => new THREE.Vector3(), []);
+  const tempCurveVec = useMemo(() => new THREE.Vector3(), []);
+  const tempCursorVec = useMemo(() => new THREE.Vector3(), []);
+  const tempCursorDir = useMemo(() => new THREE.Vector3(), []);
   const introStartRef = useRef<number | null>(null);
-  const introDuration = 3.2;
-  const introDelay = 0.2;
+  const introDuration = 5.6;
+  const introDelay = 0.6;
   const basePosition = useMemo(() => new THREE.Vector3(...position), [position]);
+  const reducedMotionRef = useRef(false);
   const skinnedMesh = useMemo<THREE.SkinnedMesh | null>(() => {
     let found: THREE.SkinnedMesh | null = null;
     scene.traverse((child) => {
@@ -39,6 +45,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
   const basePositionRef = useRef<THREE.BufferAttribute | null>(null);
   const introPositionsRef = useRef<Float32Array | null>(null);
   const introPhaseRef = useRef<Float32Array | null>(null);
+  const ambientGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const ambientBaseRef = useRef<Float32Array | null>(null);
+  const ambientPhaseRef = useRef<Float32Array | null>(null);
   const particleGeometry = useMemo<THREE.BufferGeometry | null>(() => {
     if (!skinnedMesh) return null;
     const positionAttr = skinnedMesh.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -60,7 +69,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const bounds = new THREE.Box3().setFromBufferAttribute(positionAttr);
     const size = new THREE.Vector3();
     bounds.getSize(size);
-    const spread = Math.max(size.x, size.y, size.z) * 1.25;
+    const spread = Math.max(size.x, size.y, size.z) * 1.55;
     const center = new THREE.Vector3();
     bounds.getCenter(center);
 
@@ -85,6 +94,29 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
 
     introPositionsRef.current = introPositions;
     introPhaseRef.current = introPhases;
+
+    const ambientCount = Math.min(positionAttr.count, 520);
+    const ambientPositions = new Float32Array(ambientCount * 3);
+    const ambientPhases = new Float32Array(ambientCount);
+    for (let i = 0; i < ambientCount; i += 1) {
+      const jitterX = (rand() - 0.5) * spread * 2.2;
+      const jitterY = (rand() - 0.5) * spread * 1.4;
+      const jitterZ = (rand() - 0.5) * spread * 2.2;
+      ambientPositions[i * 3 + 0] = center.x + jitterX;
+      ambientPositions[i * 3 + 1] = center.y + jitterY;
+      ambientPositions[i * 3 + 2] = center.z + jitterZ;
+      ambientPhases[i] = rand() * Math.PI * 2;
+    }
+
+    const ambientGeometry = new THREE.BufferGeometry();
+    const ambientAttr = new THREE.BufferAttribute(ambientPositions, 3);
+    ambientAttr.setUsage(THREE.DynamicDrawUsage);
+    ambientGeometry.setAttribute('position', ambientAttr);
+    ambientGeometry.computeBoundingSphere();
+    ambientGeometryRef.current = ambientGeometry;
+    ambientBaseRef.current = ambientPositions;
+    ambientPhaseRef.current = ambientPhases;
+
     return geometry;
   }, [skinnedMesh]);
   const normalizationScale = useMemo(() => {
@@ -133,6 +165,103 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     };
   }, [actions]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
+  const particleMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+        uniforms: {
+          uColor: { value: new THREE.Color('#f4e8d6') },
+          uOpacity: { value: 0.5 },
+          uPointSize: { value: 0.012 },
+          uDepthNear: { value: 0.6 },
+          uDepthRange: { value: 5.5 },
+          uFrontBoost: { value: 1.1 },
+          uTime: { value: 0 },
+        },
+        vertexShader: /* glsl */`
+          uniform float uPointSize;
+          uniform float uDepthNear;
+          uniform float uDepthRange;
+          varying float vDepth;
+          void main() {
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            float depth = clamp((-mvPosition.z - uDepthNear) / uDepthRange, 0.0, 1.0);
+            vDepth = depth;
+            gl_Position = projectionMatrix * mvPosition;
+            gl_PointSize = uPointSize * (1.0 - depth * 0.35);
+          }
+        `,
+        fragmentShader: /* glsl */`
+          uniform vec3 uColor;
+          uniform float uOpacity;
+          uniform float uFrontBoost;
+          varying float vDepth;
+          void main() {
+            vec2 cxy = gl_PointCoord - 0.5;
+            float d = length(cxy);
+            float mask = smoothstep(0.5, 0.0, d);
+            float depthFade = mix(uFrontBoost, 0.35, vDepth);
+            float alpha = uOpacity * depthFade * mask;
+            gl_FragColor = vec4(uColor, alpha);
+          }
+        `,
+      }),
+    []
+  );
+
+  const ambientMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+        uniforms: {
+          uColor: { value: new THREE.Color('#d7c4ab') },
+          uOpacity: { value: 0.2 },
+          uPointSize: { value: 0.006 },
+          uDepthNear: { value: 0.8 },
+          uDepthRange: { value: 6.5 },
+          uFrontBoost: { value: 0.9 },
+          uTime: { value: 0 },
+        },
+        vertexShader: /* glsl */`
+          uniform float uPointSize;
+          uniform float uDepthNear;
+          uniform float uDepthRange;
+          varying float vDepth;
+          void main() {
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            float depth = clamp((-mvPosition.z - uDepthNear) / uDepthRange, 0.0, 1.0);
+            vDepth = depth;
+            gl_Position = projectionMatrix * mvPosition;
+            gl_PointSize = uPointSize * (1.0 - depth * 0.25);
+          }
+        `,
+        fragmentShader: /* glsl */`
+          uniform vec3 uColor;
+          uniform float uOpacity;
+          uniform float uFrontBoost;
+          varying float vDepth;
+          void main() {
+            vec2 cxy = gl_PointCoord - 0.5;
+            float d = length(cxy);
+            float mask = smoothstep(0.5, 0.0, d);
+            float depthFade = mix(uFrontBoost, 0.25, vDepth);
+            float alpha = uOpacity * depthFade * mask;
+            gl_FragColor = vec4(uColor, alpha);
+          }
+        `,
+      }),
+    []
+  );
+
   useFrame(({ clock, mouse }) => {
     if (!groupRef.current) return;
     const t = clock.getElapsedTime();
@@ -151,6 +280,10 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
       1
     );
     const easedIntro = 1 - Math.pow(1 - introProgress, 3);
+    const attractProgress = THREE.MathUtils.smoothstep(introProgress, 0.25, 0.7);
+    const settleProgress = THREE.MathUtils.smoothstep(introProgress, 0.7, 1.0);
+    const orbitStrength = (1 - attractProgress) * 0.85;
+    const flowStrength = (1 - introProgress) * 0.6;
     const skinnedMeshWithBoneTransform =
       skinnedMesh as THREE.SkinnedMesh & {
         boneTransform: (index: number, target: THREE.Vector3) => THREE.Vector3;
@@ -159,6 +292,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const basePositionAttr = basePositionRef.current;
     const introPositions = introPositionsRef.current;
     const introPhases = introPhaseRef.current;
+    const cursorX = mouse.x * 1.2;
+    const cursorY = mouse.y * 0.9;
+    tempCursorVec.set(cursorX, cursorY, 0);
 
     for (let i = 0; i < basePositionAttr.count; i += 1) {
       tempVec.fromBufferAttribute(basePositionAttr, i);
@@ -169,16 +305,36 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           introPositions[i * 3 + 1],
           introPositions[i * 3 + 2]
         );
-        const swirl = (1 - easedIntro) * (Math.PI * 3.4);
-        const angle = introPhases[i] + swirl;
-        const radius = tempStartVec.length() * (1 - easedIntro) * 0.45;
-        const swirlOffset = new THREE.Vector3(
-          0,
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius
+        tempDirVec.copy(tempVec).sub(tempStartVec);
+        const dirLength = tempDirVec.length() + 0.0001;
+        tempDirVec.normalize();
+
+        tempOrbitVec.set(-tempDirVec.z, tempDirVec.y * 0.2, tempDirVec.x).normalize();
+        const orbitAngle = introPhases[i] + t * 0.6 + (1 - introProgress) * 2.4;
+        const orbitRadius = dirLength * orbitStrength * 0.12;
+        tempOrbitVec.multiplyScalar(Math.sin(orbitAngle) * orbitRadius);
+
+        const curveAmplitude = dirLength * flowStrength * 0.08;
+        tempCurveVec.set(
+          Math.sin(introPhases[i] + t * 0.35) * curveAmplitude,
+          Math.cos(introPhases[i] * 0.7 + t * 0.25) * curveAmplitude * 0.6,
+          Math.sin(introPhases[i] * 1.1 + t * 0.3) * curveAmplitude
         );
-        tempStartVec.add(swirlOffset);
+
+        tempStartVec.add(tempOrbitVec).add(tempCurveVec);
         tempStartVec.lerp(tempVec, easedIntro);
+
+        tempCursorDir.copy(tempVec).sub(tempCursorVec);
+        const cursorDist = tempCursorDir.length();
+        if (cursorDist > 0.0001) {
+          tempCursorDir.normalize();
+          const cursorInfluence = Math.exp(-cursorDist * 1.6) * 0.04;
+          tempStartVec.addScaledVector(tempCursorDir, cursorInfluence);
+        }
+
+        if (reducedMotionRef.current) {
+          tempStartVec.copy(tempVec);
+        }
         positionAttr.setXYZ(i, tempStartVec.x, tempStartVec.y, tempStartVec.z);
       } else {
         positionAttr.setXYZ(i, tempVec.x, tempVec.y, tempVec.z);
@@ -186,11 +342,37 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     }
 
     positionAttr.needsUpdate = true;
+
+    particleMaterial.uniforms.uTime.value = t;
+    particleMaterial.uniforms.uOpacity.value = opacity * (1.02 + 0.18 * settleProgress);
+    particleMaterial.uniforms.uFrontBoost.value = THREE.MathUtils.lerp(1.25, 1.0, settleProgress);
+    particleMaterial.uniforms.uPointSize.value = particleSize * (1.05 - settleProgress * 0.1);
+    particleMaterial.uniforms.uColor.value.set(isDark ? '#f4e8d6' : '#dbc8b1');
+
+    const ambientGeometry = ambientGeometryRef.current;
+    const ambientBase = ambientBaseRef.current;
+    const ambientPhases = ambientPhaseRef.current;
+    if (ambientGeometry && ambientBase && ambientPhases) {
+      const ambientAttr = ambientGeometry.getAttribute('position') as THREE.BufferAttribute;
+      for (let i = 0; i < ambientPhases.length; i += 1) {
+        const baseIndex = i * 3;
+        const drift = Math.sin(t * 0.35 + ambientPhases[i]) * 0.08;
+        const driftZ = Math.cos(t * 0.3 + ambientPhases[i]) * 0.08;
+        ambientAttr.setXYZ(
+          i,
+          ambientBase[baseIndex + 0] + drift,
+          ambientBase[baseIndex + 1] + Math.sin(t * 0.2 + ambientPhases[i]) * 0.05,
+          ambientBase[baseIndex + 2] + driftZ
+        );
+      }
+      ambientAttr.needsUpdate = true;
+      ambientMaterial.uniforms.uTime.value = t;
+      ambientMaterial.uniforms.uOpacity.value = isDark ? 0.2 : 0.12;
+      ambientMaterial.uniforms.uColor.value.set(isDark ? '#dccab2' : '#d0bda5');
+    }
   });
 
   const lightBoost = isDark ? 1.08 : 0.98;
-  const particleColor = isDark ? '#e4d6bf' : '#c8b29a';
-  const particleOpacity = isDark ? 0.35 : 0.24;
   const particleSize = isDark ? 0.012 : 0.01;
 
   return (
@@ -204,17 +386,11 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
         scale * normalizationScale * lightBoost * 2.5,
       ]}
     >
+      {ambientGeometryRef.current && (
+        <points geometry={ambientGeometryRef.current} material={ambientMaterial} />
+      )}
       {particleGeometry && (
-        <points geometry={particleGeometry}>
-          <pointsMaterial
-            color={particleColor}
-            size={particleSize}
-            opacity={particleOpacity}
-            transparent
-            depthWrite={false}
-            sizeAttenuation
-          />
-        </points>
+        <points geometry={particleGeometry} material={particleMaterial} />
       )}
       <primitive object={scene} visible={false} />
     </group>
