@@ -58,7 +58,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const densityMultiplier = 1.7;
     const particleCount = Math.floor(vertexCount * densityMultiplier);
     const positions = new Float32Array(particleCount * 3);
+    const normals = new Float32Array(particleCount * 3);
     const sourceIndices = new Uint32Array(particleCount);
+    const normalAttr = skinnedMesh.geometry.getAttribute('normal') as THREE.BufferAttribute;
 
     let seed = 1337;
     const rand = () => {
@@ -104,6 +106,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
         positions[filled * 3 + 0] = px;
         positions[filled * 3 + 1] = py;
         positions[filled * 3 + 2] = pz;
+        normals[filled * 3 + 0] = normalAttr.getX(sourceIndex);
+        normals[filled * 3 + 1] = normalAttr.getY(sourceIndex);
+        normals[filled * 3 + 2] = normalAttr.getZ(sourceIndex);
         filled += 1;
       }
     }
@@ -114,12 +119,16 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
       positions[i * 3 + 0] = positionAttr.getX(sourceIndex);
       positions[i * 3 + 1] = positionAttr.getY(sourceIndex);
       positions[i * 3 + 2] = positionAttr.getZ(sourceIndex);
+      normals[i * 3 + 0] = normalAttr.getX(sourceIndex);
+      normals[i * 3 + 1] = normalAttr.getY(sourceIndex);
+      normals[i * 3 + 2] = normalAttr.getZ(sourceIndex);
     }
 
     const geometry = new THREE.BufferGeometry();
     const dynamicPosition = new THREE.BufferAttribute(positions, 3);
     dynamicPosition.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('position', dynamicPosition);
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     geometry.computeBoundingSphere();
 
     const spread = Math.max(size.x, size.y, size.z) * 1.55;
@@ -230,33 +239,44 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           uDepthNear: { value: 0.6 },
           uDepthRange: { value: 5.5 },
           uFrontBoost: { value: 1.1 },
+          uEdgeBoost: { value: 0.22 },
+          uEdgeSharpness: { value: 0.2 },
           uTime: { value: 0 },
         },
         vertexShader: /* glsl */`
           uniform float uPointSize;
           uniform float uDepthNear;
           uniform float uDepthRange;
+          uniform float uEdgeSharpness;
           varying float vDepth;
+          varying float vEdge;
           void main() {
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             float depth = clamp((-mvPosition.z - uDepthNear) / uDepthRange, 0.0, 1.0);
             vDepth = depth;
+            vec3 viewNormal = normalize(normalMatrix * normal);
+            vec3 viewDir = normalize(-mvPosition.xyz);
+            float edge = 1.0 - abs(dot(viewNormal, viewDir));
+            vEdge = smoothstep(0.2, 0.95, edge);
             gl_Position = projectionMatrix * mvPosition;
-            gl_PointSize = uPointSize * (1.0 - depth * 0.35);
+            gl_PointSize = uPointSize * (1.0 - depth * 0.35) * (1.0 - vEdge * uEdgeSharpness);
           }
         `,
         fragmentShader: /* glsl */`
           uniform vec3 uColor;
           uniform float uOpacity;
           uniform float uFrontBoost;
+          uniform float uEdgeBoost;
           varying float vDepth;
+          varying float vEdge;
           void main() {
             vec2 cxy = gl_PointCoord - 0.5;
             float d = length(cxy);
             float mask = smoothstep(0.5, 0.0, d);
             float depthFade = mix(uFrontBoost, 0.35, vDepth);
-            float alpha = uOpacity * depthFade * mask;
-            gl_FragColor = vec4(uColor, alpha);
+            float edgeBoost = 1.0 + vEdge * uEdgeBoost;
+            float alpha = uOpacity * depthFade * mask * edgeBoost;
+            gl_FragColor = vec4(uColor * edgeBoost, alpha);
           }
         `,
       }),
@@ -399,6 +419,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     particleMaterial.uniforms.uFrontBoost.value = THREE.MathUtils.lerp(1.25, 1.0, settleProgress);
     particleMaterial.uniforms.uPointSize.value = particleSize * (1.05 - settleProgress * 0.1);
     particleMaterial.uniforms.uColor.value.set(isDark ? '#f4e8d6' : '#dbc8b1');
+    particleMaterial.uniforms.uEdgeBoost.value = isDark ? 0.28 : 0.22;
+    particleMaterial.uniforms.uEdgeSharpness.value = isDark ? 0.24 : 0.2;
 
     const ambientGeometry = ambientGeometryRef.current;
     const ambientBase = ambientBaseRef.current;
