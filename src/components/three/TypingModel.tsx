@@ -45,6 +45,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
   const basePositionRef = useRef<THREE.BufferAttribute | null>(null);
   const introPositionsRef = useRef<Float32Array | null>(null);
   const introPhaseRef = useRef<Float32Array | null>(null);
+  const particleSourceIndexRef = useRef<Uint32Array | null>(null);
   const ambientGeometryRef = useRef<THREE.BufferGeometry | null>(null);
   const ambientBaseRef = useRef<Float32Array | null>(null);
   const ambientPhaseRef = useRef<Float32Array | null>(null);
@@ -53,11 +54,66 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const positionAttr = skinnedMesh.geometry.getAttribute('position') as THREE.BufferAttribute;
     basePositionRef.current = positionAttr;
 
-    const positions = new Float32Array(positionAttr.count * 3);
-    for (let i = 0; i < positionAttr.count; i += 1) {
-      positions[i * 3 + 0] = positionAttr.getX(i);
-      positions[i * 3 + 1] = positionAttr.getY(i);
-      positions[i * 3 + 2] = positionAttr.getZ(i);
+    const vertexCount = positionAttr.count;
+    const densityMultiplier = 1.7;
+    const particleCount = Math.floor(vertexCount * densityMultiplier);
+    const positions = new Float32Array(particleCount * 3);
+    const sourceIndices = new Uint32Array(particleCount);
+
+    let seed = 1337;
+    const rand = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    const bounds = new THREE.Box3().setFromBufferAttribute(positionAttr);
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+    const center = new THREE.Vector3();
+    bounds.getCenter(center);
+
+    let filled = 0;
+    const maxTries = particleCount * 6;
+    let tries = 0;
+    while (filled < particleCount && tries < maxTries) {
+      tries += 1;
+      const sourceIndex = Math.floor(rand() * vertexCount);
+      const px = positionAttr.getX(sourceIndex);
+      const py = positionAttr.getY(sourceIndex);
+      const pz = positionAttr.getZ(sourceIndex);
+
+      const yNorm = (py - center.y) / Math.max(size.y, 0.0001);
+      const upperBoost = THREE.MathUtils.clamp((yNorm + 0.1) * 1.6, 0, 1);
+      const headBoost = THREE.MathUtils.smoothstep(yNorm, 0.35, 0.8);
+      const shoulderBand = 1 - Math.abs(yNorm - 0.18) * 3.2;
+      const shoulderBoost = THREE.MathUtils.clamp(shoulderBand, 0, 1);
+      const armBoost = THREE.MathUtils.smoothstep(Math.abs(px - center.x) / Math.max(size.x, 0.0001), 0.18, 0.55);
+
+      const radial = Math.sqrt((px - center.x) ** 2 + (pz - center.z) ** 2);
+      const outerNorm = radial / Math.max(Math.max(size.x, size.z) * 0.5, 0.0001);
+      const shellBoost = THREE.MathUtils.smoothstep(outerNorm, 0.45, 1.0);
+
+      const weight = THREE.MathUtils.clamp(
+        0.22 + upperBoost * 0.45 + headBoost * 0.35 + shoulderBoost * 0.3 + armBoost * 0.35 + shellBoost * 0.35,
+        0,
+        1
+      );
+
+      if (rand() <= weight) {
+        sourceIndices[filled] = sourceIndex;
+        positions[filled * 3 + 0] = px;
+        positions[filled * 3 + 1] = py;
+        positions[filled * 3 + 2] = pz;
+        filled += 1;
+      }
+    }
+
+    for (let i = filled; i < particleCount; i += 1) {
+      const sourceIndex = Math.floor(rand() * vertexCount);
+      sourceIndices[i] = sourceIndex;
+      positions[i * 3 + 0] = positionAttr.getX(sourceIndex);
+      positions[i * 3 + 1] = positionAttr.getY(sourceIndex);
+      positions[i * 3 + 2] = positionAttr.getZ(sourceIndex);
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -66,22 +122,12 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     geometry.setAttribute('position', dynamicPosition);
     geometry.computeBoundingSphere();
 
-    const bounds = new THREE.Box3().setFromBufferAttribute(positionAttr);
-    const size = new THREE.Vector3();
-    bounds.getSize(size);
     const spread = Math.max(size.x, size.y, size.z) * 1.55;
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
 
-    const introPositions = new Float32Array(positionAttr.count * 3);
-    const introPhases = new Float32Array(positionAttr.count);
-    let seed = 1337;
-    const rand = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
+    const introPositions = new Float32Array(particleCount * 3);
+    const introPhases = new Float32Array(particleCount);
 
-    for (let i = 0; i < positionAttr.count; i += 1) {
+    for (let i = 0; i < particleCount; i += 1) {
       const jitterX = (rand() - 0.5) * spread * 2.0;
       const jitterY = (rand() - 0.5) * spread * 1.6;
       const jitterZ = (rand() - 0.5) * spread * 2.0;
@@ -94,8 +140,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
 
     introPositionsRef.current = introPositions;
     introPhaseRef.current = introPhases;
+    particleSourceIndexRef.current = sourceIndices;
 
-    const ambientCount = Math.min(positionAttr.count, 520);
+    const ambientCount = Math.min(particleCount, 520);
     const ambientPositions = new Float32Array(ambientCount * 3);
     const ambientPhases = new Float32Array(ambientCount);
     for (let i = 0; i < ambientCount; i += 1) {
@@ -292,13 +339,17 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const basePositionAttr = basePositionRef.current;
     const introPositions = introPositionsRef.current;
     const introPhases = introPhaseRef.current;
+    const sourceIndices = particleSourceIndexRef.current;
     const cursorX = mouse.x * 1.2;
     const cursorY = mouse.y * 0.9;
     tempCursorVec.set(cursorX, cursorY, 0);
 
-    for (let i = 0; i < basePositionAttr.count; i += 1) {
-      tempVec.fromBufferAttribute(basePositionAttr, i);
-      skinnedMeshWithBoneTransform.boneTransform(i, tempVec);
+    const particleCount = sourceIndices ? sourceIndices.length : basePositionAttr.count;
+
+    for (let i = 0; i < particleCount; i += 1) {
+      const sourceIndex = sourceIndices ? sourceIndices[i] : i;
+      tempVec.fromBufferAttribute(basePositionAttr, sourceIndex);
+      skinnedMeshWithBoneTransform.boneTransform(sourceIndex, tempVec);
       if (introPositions && introPhases && introProgress < 1) {
         tempStartVec.set(
           introPositions[i * 3 + 0],
