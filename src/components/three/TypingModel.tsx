@@ -38,6 +38,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
 
   const basePositionRef = useRef<THREE.BufferAttribute | null>(null);
   const introPositionsRef = useRef<Float32Array | null>(null);
+  const introPhaseRef = useRef<Float32Array | null>(null);
   const particleGeometry = useMemo<THREE.BufferGeometry | null>(() => {
     if (!skinnedMesh) return null;
     const positionAttr = skinnedMesh.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -59,11 +60,12 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const bounds = new THREE.Box3().setFromBufferAttribute(positionAttr);
     const size = new THREE.Vector3();
     bounds.getSize(size);
-    const spread = Math.max(size.x, size.y, size.z) * 0.65;
+    const spread = Math.max(size.x, size.y, size.z) * 1.25;
     const center = new THREE.Vector3();
     bounds.getCenter(center);
 
     const introPositions = new Float32Array(positionAttr.count * 3);
+    const introPhases = new Float32Array(positionAttr.count);
     let seed = 1337;
     const rand = () => {
       seed = (seed * 9301 + 49297) % 233280;
@@ -71,17 +73,18 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     };
 
     for (let i = 0; i < positionAttr.count; i += 1) {
-      const rx = rand() > 0.5 ? 1 : -1;
-      const ry = rand() > 0.5 ? 1 : -1;
-      const rz = rand() > 0.5 ? 1 : -1;
-      const jitter = (rand() - 0.5) * 0.35 * spread;
+      const jitterX = (rand() - 0.5) * spread * 2.0;
+      const jitterY = (rand() - 0.5) * spread * 1.6;
+      const jitterZ = (rand() - 0.5) * spread * 2.0;
+      introPhases[i] = rand() * Math.PI * 2;
 
-      introPositions[i * 3 + 0] = center.x + rx * (size.x * 0.6 + spread) + jitter;
-      introPositions[i * 3 + 1] = center.y + ry * (size.y * 0.6 + spread) + jitter;
-      introPositions[i * 3 + 2] = center.z + rz * (size.z * 0.6 + spread) + jitter;
+      introPositions[i * 3 + 0] = center.x + jitterX;
+      introPositions[i * 3 + 1] = center.y + jitterY;
+      introPositions[i * 3 + 2] = center.z + jitterZ;
     }
 
     introPositionsRef.current = introPositions;
+    introPhaseRef.current = introPhases;
     return geometry;
   }, [skinnedMesh]);
   const normalizationScale = useMemo(() => {
@@ -155,16 +158,26 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const positionAttr = particleGeometry.getAttribute('position') as THREE.BufferAttribute;
     const basePositionAttr = basePositionRef.current;
     const introPositions = introPositionsRef.current;
+    const introPhases = introPhaseRef.current;
 
     for (let i = 0; i < basePositionAttr.count; i += 1) {
       tempVec.fromBufferAttribute(basePositionAttr, i);
       skinnedMeshWithBoneTransform.boneTransform(i, tempVec);
-      if (introPositions && introProgress < 1) {
+      if (introPositions && introPhases && introProgress < 1) {
         tempStartVec.set(
           introPositions[i * 3 + 0],
           introPositions[i * 3 + 1],
           introPositions[i * 3 + 2]
         );
+        const swirl = (1 - easedIntro) * (Math.PI * 3.4);
+        const angle = introPhases[i] + swirl;
+        const radius = tempStartVec.length() * (1 - easedIntro) * 0.45;
+        const swirlOffset = new THREE.Vector3(
+          0,
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius
+        );
+        tempStartVec.add(swirlOffset);
         tempStartVec.lerp(tempVec, easedIntro);
         positionAttr.setXYZ(i, tempStartVec.x, tempStartVec.y, tempStartVec.z);
       } else {
