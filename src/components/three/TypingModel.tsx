@@ -27,8 +27,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
   const tempCursorVec = useMemo(() => new THREE.Vector3(), []);
   const tempCursorDir = useMemo(() => new THREE.Vector3(), []);
   const introStartRef = useRef<number | null>(null);
-  const introDuration = 5.6;
-  const introDelay = 0.6;
+  const introDuration = 5.0;
+  const introDelay = 0.5;
   const basePosition = useMemo(() => new THREE.Vector3(...position), [position]);
   const reducedMotionRef = useRef(false);
   const skinnedMesh = useMemo<THREE.SkinnedMesh | null>(() => {
@@ -236,11 +236,11 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           uColor: { value: new THREE.Color('#f4e8d6') },
           uOpacity: { value: 0.5 },
           uPointSize: { value: 0.012 },
-          uDepthNear: { value: 0.6 },
-          uDepthRange: { value: 5.5 },
-          uFrontBoost: { value: 1.1 },
-          uEdgeBoost: { value: 0.22 },
-          uEdgeSharpness: { value: 0.2 },
+          uDepthNear: { value: 0.7 },
+          uDepthRange: { value: 5.8 },
+          uFrontBoost: { value: 1.12 },
+          uEdgeBoost: { value: 0.2 },
+          uEdgeSharpness: { value: 0.18 },
           uTime: { value: 0 },
         },
         vertexShader: /* glsl */`
@@ -273,9 +273,10 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
             vec2 cxy = gl_PointCoord - 0.5;
             float d = length(cxy);
             float mask = smoothstep(0.5, 0.0, d);
-            float depthFade = mix(uFrontBoost, 0.35, vDepth);
+            float depthFade = mix(uFrontBoost, 0.28, vDepth);
             float edgeBoost = 1.0 + vEdge * uEdgeBoost;
-            float alpha = uOpacity * depthFade * mask * edgeBoost;
+            float depthAttenuation = mix(1.0, 0.75, vDepth);
+            float alpha = uOpacity * depthFade * mask * edgeBoost * depthAttenuation;
             gl_FragColor = vec4(uColor * edgeBoost, alpha);
           }
         `,
@@ -293,9 +294,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           uColor: { value: new THREE.Color('#d7c4ab') },
           uOpacity: { value: 0.2 },
           uPointSize: { value: 0.006 },
-          uDepthNear: { value: 0.8 },
-          uDepthRange: { value: 6.5 },
-          uFrontBoost: { value: 0.9 },
+          uDepthNear: { value: 0.9 },
+          uDepthRange: { value: 6.8 },
+          uFrontBoost: { value: 0.88 },
           uTime: { value: 0 },
         },
         vertexShader: /* glsl */`
@@ -320,8 +321,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
             vec2 cxy = gl_PointCoord - 0.5;
             float d = length(cxy);
             float mask = smoothstep(0.5, 0.0, d);
-            float depthFade = mix(uFrontBoost, 0.25, vDepth);
-            float alpha = uOpacity * depthFade * mask;
+            float depthFade = mix(uFrontBoost, 0.2, vDepth);
+            float depthAttenuation = mix(1.0, 0.7, vDepth);
+            float alpha = uOpacity * depthFade * mask * depthAttenuation;
             gl_FragColor = vec4(uColor, alpha);
           }
         `,
@@ -349,8 +351,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     const easedIntro = 1 - Math.pow(1 - introProgress, 3);
     const attractProgress = THREE.MathUtils.smoothstep(introProgress, 0.25, 0.7);
     const settleProgress = THREE.MathUtils.smoothstep(introProgress, 0.7, 1.0);
-    const orbitStrength = (1 - attractProgress) * 0.85;
-    const flowStrength = (1 - introProgress) * 0.6;
+    const orbitStrength = (1 - attractProgress) * (0.85 - settleProgress * 0.45);
+    const flowStrength = (1 - introProgress) * (0.6 - settleProgress * 0.35);
     const skinnedMeshWithBoneTransform =
       skinnedMesh as THREE.SkinnedMesh & {
         boneTransform: (index: number, target: THREE.Vector3) => THREE.Vector3;
@@ -419,8 +421,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     particleMaterial.uniforms.uFrontBoost.value = THREE.MathUtils.lerp(1.25, 1.0, settleProgress);
     particleMaterial.uniforms.uPointSize.value = particleSize * (1.05 - settleProgress * 0.1);
     particleMaterial.uniforms.uColor.value.set(isDark ? '#f4e8d6' : '#dbc8b1');
-    particleMaterial.uniforms.uEdgeBoost.value = isDark ? 0.28 : 0.22;
-    particleMaterial.uniforms.uEdgeSharpness.value = isDark ? 0.24 : 0.2;
+    particleMaterial.uniforms.uEdgeBoost.value = isDark ? 0.26 : 0.2;
+    particleMaterial.uniforms.uEdgeSharpness.value = isDark ? 0.22 : 0.18;
 
     const ambientGeometry = ambientGeometryRef.current;
     const ambientBase = ambientBaseRef.current;
@@ -429,12 +431,12 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
       const ambientAttr = ambientGeometry.getAttribute('position') as THREE.BufferAttribute;
       for (let i = 0; i < ambientPhases.length; i += 1) {
         const baseIndex = i * 3;
-        const drift = Math.sin(t * 0.35 + ambientPhases[i]) * 0.08;
-        const driftZ = Math.cos(t * 0.3 + ambientPhases[i]) * 0.08;
+        const drift = Math.sin(t * 0.32 + ambientPhases[i]) * 0.07;
+        const driftZ = Math.cos(t * 0.28 + ambientPhases[i]) * 0.07;
         ambientAttr.setXYZ(
           i,
           ambientBase[baseIndex + 0] + drift,
-          ambientBase[baseIndex + 1] + Math.sin(t * 0.2 + ambientPhases[i]) * 0.05,
+          ambientBase[baseIndex + 1] + Math.sin(t * 0.18 + ambientPhases[i]) * 0.045 + t * 0.002,
           ambientBase[baseIndex + 2] + driftZ
         );
       }
