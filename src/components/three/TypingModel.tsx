@@ -27,8 +27,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
   const tempCursorVec = useMemo(() => new THREE.Vector3(), []);
   const tempCursorDir = useMemo(() => new THREE.Vector3(), []);
   const introStartRef = useRef<number | null>(null);
-  const introDuration = 5.0;
-  const introDelay = 0.5;
+  const introDuration = 4.6;
+  const introDelay = 0.4;
   const basePosition = useMemo(() => new THREE.Vector3(...position), [position]);
   const reducedMotionRef = useRef(false);
   const skinnedMesh = useMemo<THREE.SkinnedMesh | null>(() => {
@@ -90,13 +90,22 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
       const shoulderBand = 1 - Math.abs(yNorm - 0.18) * 3.2;
       const shoulderBoost = THREE.MathUtils.clamp(shoulderBand, 0, 1);
       const armBoost = THREE.MathUtils.smoothstep(Math.abs(px - center.x) / Math.max(size.x, 0.0001), 0.18, 0.55);
+      const kneeBand = 1 - Math.abs(yNorm + 0.28) * 3.4;
+      const kneeBoost = THREE.MathUtils.clamp(kneeBand, 0, 1);
+      const shinBand = 1 - Math.abs(yNorm + 0.42) * 3.2;
+      const shinBoost = THREE.MathUtils.clamp(shinBand, 0, 1);
+      const footBand = 1 - Math.abs(yNorm + 0.58) * 4.0;
+      const footBoost = THREE.MathUtils.clamp(footBand, 0, 1);
 
       const radial = Math.sqrt((px - center.x) ** 2 + (pz - center.z) ** 2);
       const outerNorm = radial / Math.max(Math.max(size.x, size.z) * 0.5, 0.0001);
       const shellBoost = THREE.MathUtils.smoothstep(outerNorm, 0.45, 1.0);
+      const lowerBand = THREE.MathUtils.smoothstep(-0.85, -0.2, -yNorm);
+      const legEdgeBoost = lowerBand * THREE.MathUtils.smoothstep(outerNorm, 0.35, 0.9);
 
       const weight = THREE.MathUtils.clamp(
-        0.22 + upperBoost * 0.45 + headBoost * 0.35 + shoulderBoost * 0.3 + armBoost * 0.35 + shellBoost * 0.35,
+        0.22 + upperBoost * 0.45 + headBoost * 0.35 + shoulderBoost * 0.3 + armBoost * 0.35 + shellBoost * 0.35
+          + kneeBoost * 0.18 + shinBoost * 0.14 + footBoost * 0.16 + legEdgeBoost * 0.22,
         0,
         1
       );
@@ -151,7 +160,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     introPhaseRef.current = introPhases;
     particleSourceIndexRef.current = sourceIndices;
 
-    const ambientCount = Math.min(particleCount, 520);
+    const ambientCount = Math.min(particleCount, 580);
     const ambientPositions = new Float32Array(ambientCount * 3);
     const ambientPhases = new Float32Array(ambientCount);
     for (let i = 0; i < ambientCount; i += 1) {
@@ -241,6 +250,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           uFrontBoost: { value: 1.12 },
           uEdgeBoost: { value: 0.2 },
           uEdgeSharpness: { value: 0.18 },
+          uLegBoost: { value: 0.12 },
           uTime: { value: 0 },
         },
         vertexShader: /* glsl */`
@@ -250,6 +260,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           uniform float uEdgeSharpness;
           varying float vDepth;
           varying float vEdge;
+          varying float vLeg;
           void main() {
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             float depth = clamp((-mvPosition.z - uDepthNear) / uDepthRange, 0.0, 1.0);
@@ -258,6 +269,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
             vec3 viewDir = normalize(-mvPosition.xyz);
             float edge = 1.0 - abs(dot(viewNormal, viewDir));
             vEdge = smoothstep(0.2, 0.95, edge);
+            float yWorld = position.y;
+            vLeg = smoothstep(-0.75, -0.15, -yWorld);
             gl_Position = projectionMatrix * mvPosition;
             gl_PointSize = uPointSize * (1.0 - depth * 0.35) * (1.0 - vEdge * uEdgeSharpness);
           }
@@ -267,8 +280,10 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
           uniform float uOpacity;
           uniform float uFrontBoost;
           uniform float uEdgeBoost;
+          uniform float uLegBoost;
           varying float vDepth;
           varying float vEdge;
+          varying float vLeg;
           void main() {
             vec2 cxy = gl_PointCoord - 0.5;
             float d = length(cxy);
@@ -276,8 +291,9 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
             float depthFade = mix(uFrontBoost, 0.28, vDepth);
             float edgeBoost = 1.0 + vEdge * uEdgeBoost;
             float depthAttenuation = mix(1.0, 0.75, vDepth);
-            float alpha = uOpacity * depthFade * mask * edgeBoost * depthAttenuation;
-            gl_FragColor = vec4(uColor * edgeBoost, alpha);
+            float legBoost = 1.0 + vLeg * uLegBoost;
+            float alpha = uOpacity * depthFade * mask * edgeBoost * depthAttenuation * legBoost;
+            gl_FragColor = vec4(uColor * edgeBoost * legBoost, alpha);
           }
         `,
       }),
@@ -423,6 +439,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     particleMaterial.uniforms.uColor.value.set(isDark ? '#f4e8d6' : '#dbc8b1');
     particleMaterial.uniforms.uEdgeBoost.value = isDark ? 0.26 : 0.2;
     particleMaterial.uniforms.uEdgeSharpness.value = isDark ? 0.22 : 0.18;
+    particleMaterial.uniforms.uLegBoost.value = isDark ? 0.28 : 0.2;
 
     const ambientGeometry = ambientGeometryRef.current;
     const ambientBase = ambientBaseRef.current;
