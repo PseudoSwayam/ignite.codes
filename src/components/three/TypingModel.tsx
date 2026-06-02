@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import { useAnimations, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
+THREE.Cache.enabled = true;
+
 type TypingModelProps = {
   isDark: boolean;
   scale: number;
@@ -198,8 +200,8 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
         if (Array.isArray(mesh.material)) {
           mesh.material.forEach((material) => {
             material.transparent = true;

@@ -6,6 +6,7 @@ import { HackerModeProvider, useHackerMode } from './contexts/HackerModeContext'
 import ErrorBoundary from './components/ErrorBoundary';
 import ScrollToTop from './components/ScrollToTop';
 import WelcomeAnimation from './components/WelcomeAnimation';
+import { preloadHeroAssets } from './components/three/heroPreload';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import TextCursor from './components/TextCursor';
@@ -24,8 +25,11 @@ function AppContent() {
   const { isHackerMode, isTransitioning } = useHackerMode();
 
   useEffect(() => {
-    // Show welcome screen on every page load
-  }, []);
+    // Preload 3D assets during welcome animation
+    if (showWelcome && !hasShownWelcome) {
+      preloadHeroAssets();
+    }
+  }, [showWelcome, hasShownWelcome]);
 
   const handleWelcomeComplete = () => {
     setShowWelcome(false);

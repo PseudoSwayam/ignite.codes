@@ -3,6 +3,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import TypingModel from './TypingModel';
 import { useTheme } from '../../contexts/ThemeContext';
+import { AdaptiveDpr, AdaptiveEvents, Preload } from '@react-three/drei';
 
 type SceneContentProps = {
   darkMode: boolean;
@@ -50,9 +51,6 @@ const SceneContent: React.FC<SceneContentProps> = ({ darkMode }) => {
         position={[4, 6, 6]}
         intensity={darkMode ? 1.1 : 0.85}
         color={darkMode ? new THREE.Color('#f2e9da') : new THREE.Color('#e8dcc8')}
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-bias={-0.0001}
       />
       <directionalLight
         position={[-6, -2, 2]}
@@ -83,11 +81,13 @@ const HeroScene: React.FC = () => {
       <Canvas
         className="!absolute !inset-0"
         camera={{ position: [0, 0, 7], fov: 36 }}
-        gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
-        shadows
+        gl={{ alpha: true, antialias: true, powerPreference: 'high-performance', stencil: false }}
         dpr={[1, 1.5]}
         frameloop="always"
       >
+        <AdaptiveDpr />
+        <AdaptiveEvents />
+        <Preload all />
         <Suspense fallback={null}>
           <SceneContent darkMode={darkMode} />
         </Suspense>

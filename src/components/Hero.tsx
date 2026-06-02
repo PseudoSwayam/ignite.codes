@@ -2,10 +2,9 @@ import React, { Suspense } from 'react';
 import { ArrowDown, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TypeAnimation } from 'react-type-animation'; // typing effect
-import Hero3DFallback from './Hero3DFallback';
 import { LetterReveal } from './ScrollRevealAnimations';
 import ProfileImage from './ProfileImage';
-import HeroScene from './three/HeroScene';
+const HeroScene = React.lazy(() => import('./three/HeroScene'));
 
 const smoothScrollTo = (targetY: number, duration = 1200) => {
   const startY = window.scrollY;
@@ -48,15 +47,10 @@ const Hero: React.FC = () => {
       id="home"
       className="relative min-h-screen flex items-center justify-center px-4 py-20 overflow-hidden"
     >
-      {/* 3D GLB Hero Background */}
-      <Suspense fallback={<Hero3DFallback />}>
+      {/* Typing GLB particle scene only */}
+      <Suspense fallback={null}>
         <HeroScene />
       </Suspense>
-      
-      {/* Subtle animated particle background */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-neutral-950 via-transparent to-transparent">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,197,173,0.08),transparent_60%)]" />
-      </div>
 
       <div className="text-center max-w-3xl mx-auto relative z-20">
         {/* Profile Image with hover effect */}
