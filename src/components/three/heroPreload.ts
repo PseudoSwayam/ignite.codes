@@ -15,5 +15,4 @@ export const preloadHeroAssets = () => {
 
   void import('./TypingModel');
   void import('./HeroScene');
-  void import('../../../gl/particles');
 };

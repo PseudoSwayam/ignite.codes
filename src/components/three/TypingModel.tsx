@@ -491,6 +491,7 @@ const TypingModel: React.FC<TypingModelProps> = ({ isDark, scale, opacity, posit
   );
 };
 
+// Cache GLB to prevent re-parsing on component remount
 useGLTF.preload('/modules/typing.glb');
 
 export default TypingModel;

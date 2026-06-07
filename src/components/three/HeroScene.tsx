@@ -1,6 +1,5 @@
 import React, { Suspense, useMemo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
 import TypingModel from './TypingModel';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AdaptiveDpr, AdaptiveEvents, Preload } from '@react-three/drei';
@@ -46,23 +45,7 @@ const SceneContent: React.FC<SceneContentProps> = ({ darkMode }) => {
 
   return (
     <group>
-      <ambientLight intensity={darkMode ? 0.55 : 0.4} />
-      <directionalLight
-        position={[4, 6, 6]}
-        intensity={darkMode ? 1.1 : 0.85}
-        color={darkMode ? new THREE.Color('#f2e9da') : new THREE.Color('#e8dcc8')}
-      />
-      <directionalLight
-        position={[-6, -2, 2]}
-        intensity={darkMode ? 0.4 : 0.25}
-        color={new THREE.Color('#c9b79a')}
-      />
-      <pointLight
-        position={[0, 2.5, -2]}
-        intensity={darkMode ? 0.35 : 0.2}
-        color={new THREE.Color('#ffffff')}
-      />
-
+      <ambientLight intensity={darkMode ? 0.65 : 0.5} />
       <TypingModel
         isDark={darkMode}
         scale={config.scale}
